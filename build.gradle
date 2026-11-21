@@ -8,9 +8,14 @@ plugins {
 }
 
 group = 'me.hsgamer'
-version = '1.16.0'
+version = '1.16.0-jiujiu-respawnfix1'
 def snapshot = false
 description = 'A preference world manager for Folia'
+
+// An ASCII output path avoids Windows/JDK argument-file encoding issues in test workers.
+if (providers.gradleProperty('buildOutputDir').isPresent()) {
+    layout.buildDirectory = file(providers.gradleProperty('buildOutputDir').get())
+}
 
 if (snapshot) {
     version = version + "-SNAPSHOT"
@@ -58,9 +63,24 @@ configurations.configureEach {
 }
 
 dependencies {
-    paperweight.foliaDevBundle("${serverVersion}.local-SNAPSHOT")
+    paperweight.foliaDevBundle(providers.gradleProperty('foliaDevBundleVersion').getOrElse("${serverVersion}.local-SNAPSHOT"))
 
-    compileOnly("io.canvasmc.canvas:canvas-api:1.21.11-R0.1-SNAPSHOT")
+    if (providers.gradleProperty('canvasApiJar').isPresent()) {
+        compileOnly files(providers.gradleProperty('canvasApiJar').get())
+    } else {
+        compileOnly("io.canvasmc.canvas:canvas-api:1.21.11-R0.1-SNAPSHOT")
+    }
+
+    // Luminol/Shiroha API providing PostPlayerRespawnEvent; never bundled.
+    if (providers.gradleProperty('respawnApiJar').isPresent()) {
+        compileOnly files(providers.gradleProperty('respawnApiJar').get())
+        testImplementation files(providers.gradleProperty('respawnApiJar').get())
+    }
+
+    testImplementation platform('org.junit:junit-bom:5.13.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.mockito:mockito-core:5.23.0'
 
     def core = "4.5.7"
     implementation "me.hsgamer:hscore-bukkit-config:$core"
@@ -83,6 +103,10 @@ dependencies {
 
 assemble {
     dependsOn shadowJar
+}
+
+test {
+    useJUnitPlatform()
 }
 
 shadowJar {
